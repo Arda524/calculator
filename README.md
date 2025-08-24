@@ -19,7 +19,7 @@ A modern, feature-rich calculator app built with Flutter that provides basic ari
   - Backspace (⌫) for correcting input
   - Error handling for invalid expressions
   - Fullscreen toggle mode
-  - History menu (placeholder for future implementation)
+  - History menu for viewing past calculations
 
 ## Screenshots
 
@@ -28,6 +28,7 @@ The calculator features a clean interface with:
 - Number pad with digits 0-9
 - Operation buttons with distinctive orange styling
 - Function buttons for clear, backspace, and percentage
+- History feature to view past calculations
 
 ## Getting Started
 
@@ -83,7 +84,7 @@ calculator/
 │   ├── main.dart          # Main application entry point
 │   ├── buttons/
 │   │   └── button.dart    # Custom button widgets
-│   └── history.dart       # History page (placeholder)
+│   └── history.dart       # History page for viewing past calculations
 ├── test/                  # Unit and widget tests
 ├── pubspec.yaml           # Project dependencies and metadata
 ├── pubspec.lock           # Locked dependency versions
@@ -136,8 +137,7 @@ This project uses a comprehensive `.gitignore` file to exclude:
 - `CustomRawMaterialButton3`: Equals button with filled orange background
 
 ### History Page (`history.dart`)
-- Placeholder for calculation history feature
-- Currently displays "Nothing To Show Here"
+- Displays past calculations and allows users to recalculate previous entries
 
 ## How It Works
 
@@ -146,6 +146,7 @@ This project uses a comprehensive `.gitignore` file to exclude:
 3. **Real-time Display**: Shows both the current equation and result
 4. **Calculation**: Uses the `math_expressions` package to parse and evaluate expressions
 5. **Result Display**: Shows the calculated result with proper decimal handling
+6. **History Feature**: Users can view and recalculate previous entries
 
 ## Features in Detail
 
@@ -201,4 +202,4 @@ If you encounter any issues or have suggestions for improvements, please create 
 
 ---
 
-Built with ❤️ using Flutter
+Built with ❤️ using Flutter By Ardawan M Amin
