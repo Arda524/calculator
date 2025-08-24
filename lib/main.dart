@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
           appBarTheme: AppBarTheme(color: Colors.black),
           popupMenuTheme:
               PopupMenuThemeData(elevation: 15, shadowColor: Colors.cyan)),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.dark,
       home: const HomeScreen(),
     );
   }
