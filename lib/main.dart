@@ -1,9 +1,7 @@
 import 'package:calculator/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() { runApp( const MyApp()); }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -23,6 +21,10 @@ class MyApp extends StatelessWidget {
               color: Colors.black87, fontSize: 20, fontWeight: FontWeight.bold),
         ),
         popupMenuTheme: const PopupMenuThemeData(color: Color(0xFFF5F5F5)),
+        snackBarTheme: const SnackBarThemeData(
+          backgroundColor: Colors.white,
+          contentTextStyle: TextStyle(color: Colors.black),
+        ),
       ),
       darkTheme: ThemeData.dark().copyWith(
           scaffoldBackgroundColor: Colors.black,
