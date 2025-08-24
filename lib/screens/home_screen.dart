@@ -13,6 +13,20 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final CalculatorLogic _logic = CalculatorLogic();
   bool change = true;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeCalculator();
+  }
+
+  Future<void> _initializeCalculator() async {
+    await _logic.initialize();
+    setState(() {
+      _isInitialized = true;
+    });
+  }
 
   void _onButtonPressed(String buttonText) {
     setState(() {
@@ -44,7 +58,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     onTap: () =>
                         Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-                          return History();
+                          return History(
+                            history: _logic.history,
+                            onHistoryChanged: (updatedHistory) async {
+                              await _logic.updateHistory(updatedHistory);
+                              setState(() {});
+                            },
+                            onRecalculate: (entry) {
+                              setState(() {
+                                // Extract just the equation part (before " = ")
+                                String calculation = entry.calculation;
+                                int equalsIndex = calculation.indexOf(' = ');
+                                if (equalsIndex != -1) {
+                                  _logic.equation = calculation.substring(0, equalsIndex);
+                                } else {
+                                  _logic.equation = calculation;
+                                }
+                                // Trigger calculation
+                                _logic.btnclicked("=");
+                              });
+                            },
+                          );
                         })))
               ];
             },
@@ -69,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.fromLTRB(0, 0, 5, 10),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     SingleChildScrollView(
                       reverse: true,
