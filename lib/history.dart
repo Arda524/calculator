@@ -226,9 +226,14 @@ class _HistoryState extends State<History> {
           if (isDeleting)
             TextButton(
                 onPressed: toggleSelectAll,
-                child: const Icon(
+                child: Icon(
                   Icons.task_alt_outlined,
                   size: 26,
+                  color: selectedCount == currentHistory.length 
+                    ? Colors.blue 
+                    : Theme.of(context).brightness == Brightness.dark 
+                      ? Colors.white 
+                      : Colors.black,
                 ))
           else if (currentHistory.isNotEmpty)
             IconButton(
@@ -304,6 +309,8 @@ class _HistoryState extends State<History> {
                             ),
                             trailing: isDeleting
                                 ? Checkbox(
+                                    activeColor: Color.fromARGB(255, 252, 150, 17),
+                                    checkColor: Colors.white,
                                     shape: const CircleBorder(),
                                     value: index < selectedItems.length ? selectedItems[index] : false,
                                     onChanged: (value) {
