@@ -1,12 +1,74 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings
 
+import 'dart:convert';
 import 'package:math_expressions/math_expressions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class HistoryEntry {
+  final String calculation;
+  final DateTime timestamp;
+
+  HistoryEntry(this.calculation, this.timestamp);
+
+  // Convert HistoryEntry to a Map for JSON serialization
+  Map<String, dynamic> toJson() {
+    return {
+      'calculation': calculation,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+
+  // Create HistoryEntry from a Map
+  factory HistoryEntry.fromJson(Map<String, dynamic> json) {
+    return HistoryEntry(
+      json['calculation'],
+      DateTime.parse(json['timestamp']),
+    );
+  }
+}
 
 class CalculatorLogic {
   String equation = "";
   String answer = "0";
   String expression = "";
   bool isCalculated = false;
+  List<HistoryEntry> history = [];
+
+  // Initialize and load history from shared preferences
+  Future<void> initialize() async {
+    await _loadHistory();
+  }
+
+  // Save history to shared preferences
+  Future<void> _saveHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final historyJson = history.map((entry) => entry.toJson()).toList();
+    await prefs.setString('calculator_history', json.encode(historyJson));
+  }
+
+  // Load history from shared preferences
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final historyJsonString = prefs.getString('calculator_history');
+    
+    if (historyJsonString != null) {
+      try {
+        final List<dynamic> historyJson = json.decode(historyJsonString);
+        history = historyJson.map((json) => HistoryEntry.fromJson(json)).toList();
+      } catch (e) {
+        // If there's an error parsing, start with empty history
+        history = [];
+      }
+    } else {
+      history = [];
+    }
+  }
+
+  // Update history from external sources (like when deleting items)
+  Future<void> updateHistory(List<HistoryEntry> newHistory) async {
+    history = newHistory;
+    await _saveHistory();
+  }
 
   void btnclicked(String buttonText) {
     String doesContainDecimal(dynamic result) {
@@ -32,6 +94,8 @@ class CalculatorLogic {
       }
       isCalculated = false;
     } else if (buttonText == '%') {
+      if (equation.isEmpty) return;
+      
       String lastNumber = "";
       int lastOperatorIndex = -1;
       for (int i = equation.length - 1; i >= 0; i--) {
@@ -44,16 +108,23 @@ class CalculatorLogic {
         }
       }
 
-      if (lastOperatorIndex != -1) {
-        lastNumber = equation.substring(lastOperatorIndex + 1);
-        double number = double.parse(lastNumber);
-        double percent = number / 100;
-        equation =
-            equation.substring(0, lastOperatorIndex + 1) + percent.toString();
-      } else {
-        double number = double.parse(equation);
-        double percent = number / 100;
-        equation = percent.toString();
+      try {
+        if (lastOperatorIndex != -1) {
+          lastNumber = equation.substring(lastOperatorIndex + 1);
+          if (lastNumber.isNotEmpty) {
+            double number = double.parse(lastNumber);
+            double percent = number / 100;
+            equation =
+                equation.substring(0, lastOperatorIndex + 1) + percent.toString();
+          }
+        } else {
+          double number = double.parse(equation);
+          double percent = number / 100;
+          equation = percent.toString();
+        }
+      } catch (e) {
+        // Handle parsing errors gracefully
+        return;
       }
     } else if (buttonText == "=") {
       expression = equation;
@@ -67,6 +138,8 @@ class CalculatorLogic {
         ContextModel cm = ContextModel();
         double result = exp.evaluate(EvaluationType.REAL, cm);
         answer = doesContainDecimal(result);
+        history.add(HistoryEntry('$equation = $answer', DateTime.now()));
+        _saveHistory(); // Save history after adding new entry
         isCalculated = true;
       } catch (e) {
         answer = "Error";
