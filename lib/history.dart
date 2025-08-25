@@ -1,467 +1,191 @@
-// ignore_for_file: use_super_parameters, prefer_interpolation_to_compose_strings
-
-import 'package:calculator/models/history_entry.dart';
+import 'package:calculator/buttons/button.dart';
+import 'package:calculator/history.dart';
+import 'package:calculator/logic/calculator_logic.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
-class History extends StatefulWidget {
-  final List<HistoryEntry> history;
-  final Function(List<HistoryEntry>)? onHistoryChanged;
-  final Function(HistoryEntry)? onRecalculate;
-
-  const History({Key? key, required this.history, this.onHistoryChanged, this.onRecalculate}) : super(key: key);
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
   @override
-  State<History> createState() => _HistoryState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HistoryState extends State<History> {
-  bool isDeleting = false;
-  late List<bool> selectedItems;
-  int selectedCount = 0;
-  late List<HistoryEntry> currentHistory;
+class _HomeScreenState extends State<HomeScreen> {
+  final CalculatorLogic _logic = CalculatorLogic();
+  bool change = true;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    currentHistory = List.from(widget.history);
-    selectedItems = List<bool>.filled(currentHistory.length, false);
+    _initializeCalculator();
   }
 
-  @override
-  void didUpdateWidget(History oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.history.length != oldWidget.history.length) {
-      selectedItems = List<bool>.filled(widget.history.length, false);
-      selectedCount = 0;
-      if (widget.history.isEmpty) {
-        isDeleting = false;
-      }
-    }
-  }
-
-  void toggleSelectAll() {
-    final allSelected = selectedCount == currentHistory.length;
+  Future<void> _initializeCalculator() async {
+    await _logic.initialize();
     setState(() {
-      for (int i = 0; i < selectedItems.length; i++) {
-        selectedItems[i] = !allSelected;
-      }
-      selectedCount = allSelected ? 0 : currentHistory.length;
+      _isInitialized = true;
     });
   }
 
-  void showDeleteConfirmation() {
-    if (selectedCount == 0) return;
-    
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Deleting items',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Delete $selectedCount ${selectedCount == 1 ? 'item' : 'items'} now?',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      Navigator.of(context).pop();
-                      await Future.delayed(const Duration(milliseconds: 100));
-                      deleteSelectedItems();
-                    },
-                    child: const Text(
-                      'OK',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void copySelectedItem() async {
-    if (selectedCount == 0) return;
-    
-    String selectedCalculations = '';
-    for (int i = 0; i < currentHistory.length; i++) {
-      if (selectedItems[i]) {
-        selectedCalculations += currentHistory[i].calculation + '\n';
-      }
-    }
-    
-    if (selectedCalculations.isNotEmpty) {
-      await Clipboard.setData(ClipboardData(text: selectedCalculations.trim()));
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Text copied',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : null,
-              ),
-            ),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? Colors.black
-                : null,
-            margin: const EdgeInsets.only(
-              bottom: 80,
-              left: 20,
-              right: 20,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
-      
-      setState(() {
-        isDeleting = false;
-        selectedItems = List<bool>.filled(currentHistory.length, false);
-        selectedCount = 0;
-      });
-    }
-  }
-
-  void deleteSelectedItems() {
-    if (selectedCount == 0) return;
-    
-    List<HistoryEntry> updatedHistory = [];
-    for (int i = 0; i < currentHistory.length; i++) {
-      if (!selectedItems[i]) {
-        updatedHistory.add(currentHistory[i]);
-      }
-    }
-    
-    setState(() {
-      currentHistory = updatedHistory;
-      isDeleting = false;
-      selectedItems = List<bool>.filled(updatedHistory.length, false);
-      selectedCount = 0;
-    });
-    
-    if (widget.onHistoryChanged != null) {
-      widget.onHistoryChanged!(updatedHistory);
-    }
-  }
-
-  void recalculateSelectedItems() {
-    if (selectedCount == 1) {
-      final selectedEntryIndex = selectedItems.indexOf(true);
-      if (selectedEntryIndex != -1) {
-        final selectedEntry = currentHistory[selectedEntryIndex];
-        if (widget.onRecalculate != null) {
-          widget.onRecalculate!(selectedEntry);
-        }
-        Navigator.of(context).pop(); // Close the history screen
-      }
-    }
-    setState(() {
-      isDeleting = false;
-      selectedItems = List<bool>.filled(currentHistory.length, false);
-      selectedCount = 0;
-    });
+  Future<void> _onButtonPressed(String buttonText) async {
+    await _logic.btnclicked(buttonText);
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
-        leading: isDeleting
-            ? IconButton(
-                onPressed: () {
-                  setState(() {
-                    isDeleting = false;
-                    selectedItems =
-                        List<bool>.filled(currentHistory.length, false);
-                    selectedCount = 0;
-                  });
-                },
-                icon: const Icon(Icons.close),
-              )
-            : null,
-        title: Text(
-          isDeleting ? "Selected $selectedCount items" : "History",
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
+        title: Text("Calculator",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         actions: [
-          if (isDeleting)
-            TextButton(
-                onPressed: toggleSelectAll,
-                child: Icon(
-                  Icons.task_alt_outlined,
-                  size: 26,
-                  color: selectedCount == currentHistory.length 
-                    ? Colors.blue 
-                    : Theme.of(context).brightness == Brightness.dark 
-                      ? Colors.white 
-                      : Colors.black,
-                ))
-          else if (currentHistory.isNotEmpty)
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  isDeleting = true;
-                });
-              },
-              icon: const Icon(Icons.delete_outline),
-              iconSize: 26,
-            ),
-        ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: currentHistory.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.history,
-                          size: 50,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          'No items here yet',
-                          style: TextStyle(fontSize: 20),
-                        ),
-                      ],
+          PopupMenuButton(
+            offset: Offset(0, 45.5),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            itemBuilder: (context) {
+              return [
+                PopupMenuItem(
+                    padding: EdgeInsets.fromLTRB(0, 0, 125, 0),
+                    child: Container(
+                      padding: EdgeInsets.fromLTRB(20, 0, 0, 0),
+                      child: Text(
+                        "History",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: currentHistory.length,
-                    itemBuilder: (context, index) {
-                      final entry = currentHistory[index];
-                      final previousEntry = index > 0 ? currentHistory[index - 1] : null;
-                      final bool showDateHeader = previousEntry == null ||
-                          !_isSameDay(entry.timestamp, previousEntry.timestamp);
-
-                      return Column(
-                        children: [
-                          if (showDateHeader)
-                            Column(
-                              children: [
-                                if (previousEntry != null)
-                                  const Divider(thickness: 1, height: 20),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      DateFormat('dd/MM/yyyy').format(entry.timestamp),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ListTile(
-                            title: Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                entry.calculation,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: index < selectedItems.length && selectedItems[index]
-                                      ? (Theme.of(context).brightness == Brightness.dark
-                                          ? Colors.white // White text for better visibility in dark mode
-                                          : null)
-                                      : null,
-                                ),
-                              ),
-                            ),
-                            tileColor: index < selectedItems.length && selectedItems[index] 
-                                ? (Theme.of(context).brightness == Brightness.dark
-                                    ? const Color.fromARGB(47, 255, 255, 255) // Darker gray for dark mode
-                                    : Colors.grey[300])
-                                : null,
-                            onTap: () {
-                              if (isDeleting) return; // Only allow selection in non-deletion mode
-                              if (index < selectedItems.length) {
-                                setState(() {
-                                  selectedItems[index] = !selectedItems[index];
-                                  if (selectedItems[index]) {
-                                    selectedCount++;
-                                  } else {
-                                    selectedCount--;
-                                  }
-                                });
-                              }
+                    onTap: () =>
+                        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
+                          return History(
+                            history: _logic.history,
+                            onHistoryChanged: (updatedHistory) async {
+                              await _logic.updateHistory(updatedHistory);
+                              setState(() {});
                             },
-                            trailing: isDeleting
-                                ? Checkbox(
-                                    activeColor: Color.fromARGB(255, 252, 150, 17),
-                                    checkColor: Colors.white,
-                                    shape: const CircleBorder(),
-                                    value: index < selectedItems.length ? selectedItems[index] : false,
-                                    onChanged: (value) {
-                                      if (index < selectedItems.length) {
-                                        setState(() {
-                                          selectedItems[index] = value!;
-                                          if (value) {
-                                            selectedCount++;
-                                          } else {
-                                            selectedCount--;
-                                          }
-                                        });
-                                      }
-                                    },
-                                  )
-                                : null,
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-          ),
+                            onRecalculate: (entry) {
+                              setState(() {
+                                // Extract just the equation part (before " = ")
+                                String calculation = entry.calculation;
+                                int equalsIndex = calculation.indexOf(' = ');
+                                if (equalsIndex != -1) {
+                                  _logic.equation = calculation.substring(0, equalsIndex);
+                                } else {
+                                  _logic.equation = calculation;
+                                }
+                                // Trigger calculation
+                                _logic.btnclicked("=");
+                              });
+                            },
+                          );
+                        })))
+              ];
+            },
+          )
         ],
+        leading: IconButton(
+          onPressed: () {
+            setState(() {
+              change = !change;
+            });
+          },
+          icon:
+              Icon(change ? Icons.fullscreen_exit_outlined : Icons.fullscreen),
+        ),
       ),
-      bottomNavigationBar: isDeleting
-          ? BottomAppBar(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.black
-                  : null,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  TextButton(
-                    onPressed: selectedCount == 1 ? recalculateSelectedItems : null,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.replay_outlined,
-                          color: selectedCount == 1
-                              ? (Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : Colors.black)
-                              : Colors.grey,
+      body: Container(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 30),
+        child: Column(
+          children: <Widget>[
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(0, 0, 5, 10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    SingleChildScrollView(
+                      reverse: true,
+                      child: Container(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          _logic.equation,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                              fontSize: 35.0, fontWeight: FontWeight.w400),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Recalculate',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: selectedCount == 1
-                                ? (Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : Colors.black)
-                                : Colors.grey,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: selectedCount > 0 ? copySelectedItem : null,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.copy_all_outlined,
-                          color: selectedCount > 0
-                              ? (Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : Colors.black)
-                              : Colors.grey,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Copy',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: selectedCount > 0
-                                ? (Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : Colors.black)
-                                : Colors.grey,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(
+                      height: 10.0,
                     ),
-                  ),
-                  TextButton(
-                    onPressed: selectedCount > 0 ? showDeleteConfirmation : null,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.delete_outline,
-                          color: selectedCount > 0
-                              ? (Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : Colors.black)
-                              : Colors.grey,
+                    SingleChildScrollView(
+                      reverse: true,
+                      child: Container(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          _logic.answer,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                              fontSize: 52.0, fontWeight: FontWeight.w400),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Delete',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: selectedCount > 0
-                                ? (Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : Colors.black)
-                                : Colors.grey,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            )
-          : null,
+            ),
+            Row(
+              children: [
+                CustomRawMaterialButton2(context, 'Ac', () => _onButtonPressed('AC')),
+                CustomRawMaterialButton2(context, '⌫', () => _onButtonPressed('⌫')),
+                CustomRawMaterialButton2(context, '%', () => _onButtonPressed('%')),
+                CustomRawMaterialButton2(context, '÷', () => _onButtonPressed('÷'))
+              ],
+            ),
+            Row(
+              children: [
+                CustomRawMaterialButton(context, '7', () => _onButtonPressed('7')),
+                CustomRawMaterialButton(context, '8', () => _onButtonPressed('8')),
+                CustomRawMaterialButton(context, '9', () => _onButtonPressed('9')),
+                CustomRawMaterialButton2(context, '×', () => _onButtonPressed('×'))
+              ],
+            ),
+            Row(
+              children: [
+                CustomRawMaterialButton(context, '4', () => _onButtonPressed('4')),
+                CustomRawMaterialButton(context, '5', () => _onButtonPressed('5')),
+                CustomRawMaterialButton(context, '6', () => _onButtonPressed('6')),
+                CustomRawMaterialButton2(context, '-', () => _onButtonPressed('-'))
+              ],
+            ),
+            Row(
+              children: [
+                CustomRawMaterialButton(context, '1', () => _onButtonPressed('1')),
+                CustomRawMaterialButton(context, '2', () => _onButtonPressed('2')),
+                CustomRawMaterialButton(context, '3', () => _onButtonPressed('3')),
+                CustomRawMaterialButton2(context, '+', () => _onButtonPressed('+'))
+              ],
+            ),
+            Row(
+              children: [
+                CustomRawMaterialButton(context, '00', () => _onButtonPressed('00')),
+                CustomRawMaterialButton(context, '0', () => _onButtonPressed('0')),
+                CustomRawMaterialButton(context, '.', () => _onButtonPressed('.')),
+                CustomRawMaterialButton3(context, '=', () => _onButtonPressed('='))
+              ],
+            ),
+          ],
+        ),
+      ),
     );
-  }
-
-  bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
   }
 }
