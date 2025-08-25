@@ -1,189 +1,95 @@
-// ignore_for_file: prefer_interpolation_to_compose_strings
+// ignore_for_file: non_constant_identifier_names, sort_child_properties_last
 
-import 'dart:convert';
-import 'package:math_expressions/math_expressions.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:calculator/models/history_entry.dart';
+import 'package:flutter/material.dart';
 
-class CalculatorLogic {
-  String equation = "";
-  String answer = "0";
-  String expression = "";
-  bool isCalculated = false;
-  List<HistoryEntry> history = [];
+enum ButtonType {
+  number,
+  operator,
+  equals,
+  function
+}
 
-  // Initialize and load history from shared preferences
-  Future<void> initialize() async {
-    await _loadHistory();
+Widget calculatorButton(BuildContext context, String buttonText, void Function()? onPressed, {ButtonType type = ButtonType.number}) {
+  final theme = Theme.of(context);
+  final isDarkMode = theme.brightness == Brightness.dark;
+
+  Color backgroundColor;
+  Color textColor;
+  double fontSize;
+  EdgeInsets padding;
+
+  switch (type) {
+    case ButtonType.number:
+      backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
+      textColor = isDarkMode ? Colors.white : Colors.black;
+      fontSize = 26.0;
+      padding = const EdgeInsets.all(14.0);
+      break;
+    case ButtonType.operator:
+      backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
+      textColor = const Color.fromARGB(255, 252, 150, 17);
+      fontSize = 26.0;
+      padding = const EdgeInsets.all(14.0);
+      break;
+    case ButtonType.equals:
+      backgroundColor = const Color.fromARGB(255, 252, 150, 17);
+      textColor = Colors.white;
+      fontSize = 38.0;
+      padding = const EdgeInsets.all(5.5);
+      break;
+    case ButtonType.function:
+      backgroundColor = isDarkMode ? Colors.grey[850]! : Colors.white;
+      textColor = isDarkMode ? Colors.white : Colors.black;
+      fontSize = 26.0;
+      padding = const EdgeInsets.all(14.0);
+      break;
   }
 
-  // Save history to shared preferences
-  Future<void> _saveHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final historyJson = history.map((entry) => entry.toJson()).toList();
-    await prefs.setString('calculator_history', json.encode(historyJson));
-  }
+  return Expanded(
+    child: Container(
+      padding: const EdgeInsets.all(7),
+      child: Container(
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: type != ButtonType.equals && !isDarkMode
+              ? [
+                  BoxShadow(
+                    color: Colors.grey.withAlpha(51),
+                    spreadRadius: 1,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: RawMaterialButton(
+          onPressed: onPressed,
+          child: Text(
+            buttonText,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          padding: padding,
+        ),
+      ),
+    ),
+  );
+}
 
-  // Load history from shared preferences
-  Future<void> _loadHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final historyJsonString = prefs.getString('calculator_history');
-    
-    if (historyJsonString != null) {
-      try {
-        final List<dynamic> historyJson = json.decode(historyJsonString);
-        history = historyJson.map((json) => HistoryEntry.fromJson(json)).toList();
-      } catch (e) {
-        // If there's an error parsing, start with empty history
-        history = [];
-      }
-    } else {
-      history = [];
-    }
-  }
+// Legacy functions for backward compatibility
+Widget CustomRawMaterialButton(BuildContext context, String buttonText, void Function()? btnclicked) {
+  return calculatorButton(context, buttonText, btnclicked, type: ButtonType.number);
+}
 
-  // Update history from external sources (like when deleting items)
-  Future<void> updateHistory(List<HistoryEntry> newHistory) async {
-    history = newHistory;
-    await _saveHistory();
-  }
+Widget CustomRawMaterialButton2(BuildContext context, String buttonText, void Function()? btnclicked) {
+  return calculatorButton(context, buttonText, btnclicked, type: ButtonType.operator);
+}
 
-  Future<void> btnclicked(String buttonText) async {
-    String formatResult(double result) {
-      // Format the result to remove trailing .0 if it's an integer
-      if (result % 1 == 0) {
-        return result.toInt().toString();
-      }
-      return result.toString();
-    }
-
-    if (buttonText == "AC") {
-      equation = "";
-      answer = "0";
-      isCalculated = false;
-    } else if (buttonText == "⌫") {
-      if (equation.isNotEmpty) {
-        equation = equation.substring(0, equation.length - 1);
-      }
-      if (equation.isEmpty) {
-        answer = "0";
-      }
-      isCalculated = false;
-    } else if (buttonText == '%') {
-      if (equation.isEmpty) return;
-      
-      try {
-        // Parse the entire equation to handle percentage correctly
-        String tempExpression = equation.replaceAll('×', '*').replaceAll('÷', '/');
-        final p = ShuntingYardParser();
-        Expression exp = p.parse(tempExpression);
-        ContextModel cm = ContextModel();
-        double currentResult = exp.evaluate(EvaluationType.REAL, cm);
-        
-        // Calculate percentage of the current result
-        double percentResult = currentResult / 100;
-        equation = percentResult.toString();
-        answer = formatResult(percentResult);
-      } catch (e) {
-        answer = "Error";
-      }
-    } else if (buttonText == "=") {
-      if (equation.isEmpty) return;
-      
-      expression = equation;
-      expression = expression.replaceAll('×', '*');
-      expression = expression.replaceAll('÷', '/');
-      
-      try {
-        final p = ShuntingYardParser();
-        Expression exp = p.parse(expression);
-        ContextModel cm = ContextModel();
-        double result = exp.evaluate(EvaluationType.REAL, cm);
-        
-        // Handle division by zero
-        if (result.isInfinite || result.isNaN) {
-          answer = "Error";
-          return;
-        }
-        
-        answer = formatResult(result);
-        history.add(HistoryEntry('$equation = $answer', DateTime.now()));
-        await _saveHistory(); // Save history after adding new entry
-        isCalculated = true;
-      } catch (e) {
-        answer = "Error";
-      }
-    } else if (buttonText == ".") {
-      if (isCalculated) {
-        equation = "0.";
-        answer = "0";
-        isCalculated = false;
-        return;
-      }
-      if (equation.isEmpty) {
-        equation = "0.";
-        return;
-      }
-
-      // Find the last number in the equation
-      String lastNumber = "";
-      int lastOperatorIndex = -1;
-      for (int i = equation.length - 1; i >= 0; i--) {
-        if (equation[i] == '+' ||
-            equation[i] == '-' ||
-            equation[i] == '×' ||
-            equation[i] == '÷') {
-          lastOperatorIndex = i;
-          break;
-        }
-      }
-
-      if (lastOperatorIndex != -1) {
-        lastNumber = equation.substring(lastOperatorIndex + 1);
-      } else {
-        lastNumber = equation;
-      }
-
-      // Only add decimal if the last number doesn't already have one
-      if (!lastNumber.contains(".")) {
-        equation = equation + ".";
-      }
-    } else {
-      if (isCalculated) {
-        if (buttonText == "÷" ||
-            buttonText == "×" ||
-            buttonText == "-" ||
-            buttonText == "+") {
-          equation = answer + buttonText;
-          answer = "0";
-        } else {
-          equation = buttonText;
-          answer = "0";
-        }
-        isCalculated = false;
-      } else {
-        if (equation == "0") {
-          if (buttonText == "0" || buttonText == "00") {
-            equation = "0";
-          } else {
-            equation = buttonText;
-          }
-        } else {
-          // Prevent consecutive operators
-          if ((buttonText == "÷" ||
-                  buttonText == "×" ||
-                  buttonText == "-" ||
-                  buttonText == "+") &&
-              (equation.endsWith("÷") ||
-                  equation.endsWith("×") ||
-                  equation.endsWith("-") ||
-                  equation.endsWith("+"))) {
-            equation = equation.substring(0, equation.length - 1) + buttonText;
-          } else {
-            equation = equation + buttonText;
-          }
-        }
-      }
-    }
-  }
+Widget CustomRawMaterialButton3(BuildContext context, String buttonText, void Function()? btnclicked) {
+  return calculatorButton(context, buttonText, btnclicked, type: ButtonType.equals);
 }
