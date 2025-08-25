@@ -1,6 +1,6 @@
-// ignore_for_file: use_super_parameters, prefer_interpolation_to_compose_strings, avoid_print
+// ignore_for_file: use_super_parameters, prefer_interpolation_to_compose_strings
 
-import 'package:calculator/logic/calculator_logic.dart';
+import 'package:calculator/models/history_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -304,9 +304,34 @@ class _HistoryState extends State<History> {
                               alignment: Alignment.centerRight,
                               child: Text(
                                 entry.calculation,
-                                style: const TextStyle(fontSize: 18),
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: index < selectedItems.length && selectedItems[index]
+                                      ? (Theme.of(context).brightness == Brightness.dark
+                                          ? Colors.white // White text for better visibility in dark mode
+                                          : null)
+                                      : null,
+                                ),
                               ),
                             ),
+                            tileColor: index < selectedItems.length && selectedItems[index] 
+                                ? (Theme.of(context).brightness == Brightness.dark
+                                    ? const Color.fromARGB(47, 255, 255, 255) // Darker gray for dark mode
+                                    : Colors.grey[300])
+                                : null,
+                            onTap: () {
+                              if (isDeleting) return; // Only allow selection in non-deletion mode
+                              if (index < selectedItems.length) {
+                                setState(() {
+                                  selectedItems[index] = !selectedItems[index];
+                                  if (selectedItems[index]) {
+                                    selectedCount++;
+                                  } else {
+                                    selectedCount--;
+                                  }
+                                });
+                              }
+                            },
                             trailing: isDeleting
                                 ? Checkbox(
                                     activeColor: Color.fromARGB(255, 252, 150, 17),
