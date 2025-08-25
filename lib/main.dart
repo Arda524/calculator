@@ -12,9 +12,9 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF5F5F5), // A light grey
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         appBarTheme: const AppBarTheme(
-          color: Color(0xFFF5F5F5), // Matching app bar
+          color: Color(0xFFF5F5F5), 
           elevation: 0,
           iconTheme: IconThemeData(color: Colors.black87),
           titleTextStyle: TextStyle(
