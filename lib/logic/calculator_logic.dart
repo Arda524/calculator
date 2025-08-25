@@ -3,29 +3,7 @@
 import 'dart:convert';
 import 'package:math_expressions/math_expressions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-class HistoryEntry {
-  final String calculation;
-  final DateTime timestamp;
-
-  HistoryEntry(this.calculation, this.timestamp);
-
-  // Convert HistoryEntry to a Map for JSON serialization
-  Map<String, dynamic> toJson() {
-    return {
-      'calculation': calculation,
-      'timestamp': timestamp.toIso8601String(),
-    };
-  }
-
-  // Create HistoryEntry from a Map
-  factory HistoryEntry.fromJson(Map<String, dynamic> json) {
-    return HistoryEntry(
-      json['calculation'],
-      DateTime.parse(json['timestamp']),
-    );
-  }
-}
+import 'package:calculator/models/history_entry.dart';
 
 class CalculatorLogic {
   String equation = "";
@@ -70,13 +48,11 @@ class CalculatorLogic {
     await _saveHistory();
   }
 
-  void btnclicked(String buttonText) {
-    String doesContainDecimal(dynamic result) {
-      if (result.toString().contains('.')) {
-        List<String> splitDecimal = result.toString().split('.');
-        if (!(int.parse(splitDecimal[1]) > 0)) {
-          return splitDecimal[0].toString();
-        }
+  Future<void> btnclicked(String buttonText) async {
+    String formatResult(double result) {
+      // Format the result to remove trailing .0 if it's an integer
+      if (result % 1 == 0) {
+        return result.toInt().toString();
       }
       return result.toString();
     }
@@ -89,57 +65,50 @@ class CalculatorLogic {
       if (equation.isNotEmpty) {
         equation = equation.substring(0, equation.length - 1);
       }
-      if (equation == "") {
-        equation = "";
+      if (equation.isEmpty) {
+        answer = "0";
       }
       isCalculated = false;
     } else if (buttonText == '%') {
       if (equation.isEmpty) return;
       
-      String lastNumber = "";
-      int lastOperatorIndex = -1;
-      for (int i = equation.length - 1; i >= 0; i--) {
-        if (equation[i] == '+' ||
-            equation[i] == '-' ||
-            equation[i] == '×' ||
-            equation[i] == '÷') {
-          lastOperatorIndex = i;
-          break;
-        }
-      }
-
       try {
-        if (lastOperatorIndex != -1) {
-          lastNumber = equation.substring(lastOperatorIndex + 1);
-          if (lastNumber.isNotEmpty) {
-            double number = double.parse(lastNumber);
-            double percent = number / 100;
-            equation =
-                equation.substring(0, lastOperatorIndex + 1) + percent.toString();
-          }
-        } else {
-          double number = double.parse(equation);
-          double percent = number / 100;
-          equation = percent.toString();
-        }
+        // Parse the entire equation to handle percentage correctly
+        String tempExpression = equation.replaceAll('×', '*').replaceAll('÷', '/');
+        final p = ShuntingYardParser();
+        Expression exp = p.parse(tempExpression);
+        ContextModel cm = ContextModel();
+        double currentResult = exp.evaluate(EvaluationType.REAL, cm);
+        
+        // Calculate percentage of the current result
+        double percentResult = currentResult / 100;
+        equation = percentResult.toString();
+        answer = formatResult(percentResult);
       } catch (e) {
-        // Handle parsing errors gracefully
-        return;
+        answer = "Error";
       }
     } else if (buttonText == "=") {
+      if (equation.isEmpty) return;
+      
       expression = equation;
       expression = expression.replaceAll('×', '*');
       expression = expression.replaceAll('÷', '/');
-      expression = expression.replaceAll('%', '%');
-
+      
       try {
         final p = ShuntingYardParser();
         Expression exp = p.parse(expression);
         ContextModel cm = ContextModel();
         double result = exp.evaluate(EvaluationType.REAL, cm);
-        answer = doesContainDecimal(result);
+        
+        // Handle division by zero
+        if (result.isInfinite || result.isNaN) {
+          answer = "Error";
+          return;
+        }
+        
+        answer = formatResult(result);
         history.add(HistoryEntry('$equation = $answer', DateTime.now()));
-        _saveHistory(); // Save history after adding new entry
+        await _saveHistory(); // Save history after adding new entry
         isCalculated = true;
       } catch (e) {
         answer = "Error";
@@ -147,6 +116,7 @@ class CalculatorLogic {
     } else if (buttonText == ".") {
       if (isCalculated) {
         equation = "0.";
+        answer = "0";
         isCalculated = false;
         return;
       }
@@ -155,6 +125,7 @@ class CalculatorLogic {
         return;
       }
 
+      // Find the last number in the equation
       String lastNumber = "";
       int lastOperatorIndex = -1;
       for (int i = equation.length - 1; i >= 0; i--) {
@@ -173,12 +144,9 @@ class CalculatorLogic {
         lastNumber = equation;
       }
 
+      // Only add decimal if the last number doesn't already have one
       if (!lastNumber.contains(".")) {
-        if (lastNumber.isEmpty) {
-          equation = equation + "0.";
-        } else {
-          equation = equation + ".";
-        }
+        equation = equation + ".";
       }
     } else {
       if (isCalculated) {
@@ -187,6 +155,7 @@ class CalculatorLogic {
             buttonText == "-" ||
             buttonText == "+") {
           equation = answer + buttonText;
+          answer = "0";
         } else {
           equation = buttonText;
           answer = "0";
@@ -200,6 +169,7 @@ class CalculatorLogic {
             equation = buttonText;
           }
         } else {
+          // Prevent consecutive operators
           if ((buttonText == "÷" ||
                   buttonText == "×" ||
                   buttonText == "-" ||
@@ -208,8 +178,7 @@ class CalculatorLogic {
                   equation.endsWith("×") ||
                   equation.endsWith("-") ||
                   equation.endsWith("+"))) {
-            equation =
-                equation.substring(0, equation.length - 1) + buttonText;
+            equation = equation.substring(0, equation.length - 1) + buttonText;
           } else {
             equation = equation + buttonText;
           }
